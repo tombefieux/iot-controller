@@ -7,3 +7,5 @@
 #define GPIO_TEMP_SENSOR    22
 
 #define PWM_CANAL           0
+
+#define EEPROM_SIZE 50

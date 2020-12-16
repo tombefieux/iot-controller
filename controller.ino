@@ -46,7 +46,7 @@ void vTaskPeriodic( void *pvParameters )
   xLastWakeTime = xTaskGetTickCount();
   for( ;; )
   {
-    Serial.printf("%s %d\n", pcTaskName, xPortGetCoreID());
+    // Serial.printf("%s %d\n", pcTaskName, xPortGetCoreID());
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(500));
   }
 }
@@ -73,9 +73,10 @@ void setup()
   xTaskCreate(vTaskPeriodic, "vTaskPeriodic", 10000, NULL, 1, NULL);
   xTaskCreate(movementDetected, "movementDetected", 10000, NULL, 1, NULL);
 
-  // todo: setup wifi
+  // init controller
+  controller.init();
 
-  // todo: set up controller with info from server
+  // todo: setup wifi
 
   for(;;);
 }
