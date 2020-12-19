@@ -77,6 +77,9 @@ void setup()
   controller.init();
 
   // todo: setup wifi
+  char description[200];
+  controller.getDescription(description);
+  Serial.println(description);
 
   for(;;);
 }

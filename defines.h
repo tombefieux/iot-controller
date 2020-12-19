@@ -8,4 +8,5 @@
 
 #define PWM_CANAL           0
 
-#define EEPROM_SIZE 50
+#define NAME_SIZE 50
+#define SERVER_IP_SIZE 16
