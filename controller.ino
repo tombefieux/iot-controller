@@ -1,11 +1,17 @@
 #include <Arduino.h>
+#include <WiFi.h>
 
 #include "defines.h"
+#include "credentials.h"
 #include "Controller.h"
 
 Controller controller;
 
+WiFiServer server(80);
+
 SemaphoreHandle_t xBinarySemaphore = NULL;
+
+const long timeoutTime = 2000;
 
 /**
  * Interuption routine used when the movement sensor is triggered.
@@ -39,15 +45,63 @@ void movementDetected(void *pvParameters)
   }
 }
 
-void vTaskPeriodic( void *pvParameters )
+void vServerTask( void *pvParameters )
 {
-  const char *pcTaskName = "Task periodique";
-  TickType_t xLastWakeTime;
-  xLastWakeTime = xTaskGetTickCount();
-  for( ;; )
-  {
-    // Serial.printf("%s %d\n", pcTaskName, xPortGetCoreID());
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(500));
+  unsigned long currentTime;
+  unsigned long previousTime = 0; 
+  String header;
+
+  for (;;) {  
+    WiFiClient client = server.available();
+    if (client) {
+      
+      currentTime = millis();
+      previousTime = currentTime;
+      String currentLine = "";
+      while (client.connected() && currentTime - previousTime <= timeoutTime) {
+        currentTime = millis();
+        if (client.available()) {
+          char c = client.read();
+          header += c;
+          if (c == '\n') {
+            // end of request so send response
+            if (currentLine.length() == 0) {
+
+              // routing
+              // controller
+              if(header.indexOf("GET /controller") != -1) {
+                // send header
+                client.println("HTTP/1.1 200 OK");
+                client.println("Content-type:application/json");
+                client.println("Connection: close");
+                client.println();
+
+                char result[200];
+                controller.getDescription(result);
+                client.println(result);
+
+                client.println();
+              }
+
+              else {
+                client.println("HTTP/1.1 404 NOT FOUND");
+                client.println("Connection: close");
+                client.println();
+              }
+
+              break;
+              
+            } else {
+              currentLine = "";
+            }
+          } else if (c != '\r') {
+            currentLine += c;
+          }
+        }
+      }
+      header = "";
+      client.stop();
+    }
   }
 }
 
@@ -57,7 +111,7 @@ void setup()
   while (!Serial);
   infos();
 
-  // Pin managment
+  // pin managment
   pinMode(GPIO_MOVE_SENSOR, INPUT);
   pinMode(GPIO_LED_DATA, OUTPUT);
   pinMode(GPIO_LED, OUTPUT);
@@ -69,25 +123,36 @@ void setup()
   // semaphore
   xBinarySemaphore = xSemaphoreCreateBinary();
 
-  // task creation
-  xTaskCreate(vTaskPeriodic, "vTaskPeriodic", 10000, NULL, 1, NULL);
-  xTaskCreate(movementDetected, "movementDetected", 10000, NULL, 1, NULL);
-
   // init controller
   controller.init();
 
-  // todo: setup wifi
-  char description[200];
-  controller.getDescription(description);
-  Serial.println(description);
+  // setup wifi
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.print("\nConnected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // launch web server
+  server.begin();
+
+  // task creation
+  xTaskCreate(vServerTask, "vServerTask", 10000, NULL, 1, NULL);
+  xTaskCreate(movementDetected, "movementDetected", 10000, NULL, 1, NULL);
+
+  // all is ok
+  controller.setAlarmDisable();
 
   for(;;);
 }
 
-void loop()
-{
-  
-}
+void loop() {}
 
 void infos()
 {

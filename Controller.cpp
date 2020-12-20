@@ -45,9 +45,6 @@ void Controller::init() {
 
         // min humidity
         minHumidity = (char) EEPROM.read(SERVER_IP_SIZE + NAME_SIZE + 5);
-
-        // all is ok
-        setAlarmDisable();
     }
 }
 
