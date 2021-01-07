@@ -6,7 +6,7 @@ Alarm::Alarm() {}
 void Alarm::startAlarm() {
   if(!alarmAlreadyLunched) {
       alarmAlreadyLunched = true;
-      xTaskCreate(runAlarm, "runAlarm", 10000, NULL, 1, NULL);
+      xTaskCreatePinnedToCore(runAlarm, "runAlarm", 10000, NULL, 1, NULL, 0);
   }
 }
 

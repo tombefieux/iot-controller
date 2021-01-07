@@ -1,16 +1,16 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include "DHTesp.h"
 
 #include "defines.h"
 #include "credentials.h"
 #include "Controller.h"
 
 Controller controller;
-
+DHTesp dht;
 WiFiServer server(80);
 
 SemaphoreHandle_t xBinarySemaphore = NULL;
-
 const long timeoutTime = 2000;
 
 /**
@@ -70,6 +70,8 @@ void vServerTask( void *pvParameters )
               // routing
               // controller
               if(header.indexOf("GET /controller") != -1) {
+                Serial.println("Responding to controller request");
+                
                 // send header
                 client.println("HTTP/1.1 200 OK");
                 client.println("Content-type:application/json");
@@ -78,6 +80,39 @@ void vServerTask( void *pvParameters )
 
                 char result[200];
                 controller.getDescription(result);
+                client.println(result);
+
+                client.println();
+              }
+
+              // sensors
+              else if(header.indexOf("GET /sensors") != -1) {
+                Serial.println("Responding to sensor request");
+                
+                // send header
+                client.println("HTTP/1.1 200 OK");
+                client.println("Content-type:application/json");
+                client.println("Connection: close");
+                client.println();
+
+                StaticJsonDocument<100> json;
+                
+                if(controller.getUseTemperatureSensor()) {
+                  
+                  TempAndHumidity newValues = dht.getTempAndHumidity();
+                  if (dht.getStatus() != 0) {
+                    Serial.println("DHT11 error status: " + String(dht.getStatusString()));
+                  }
+                  else {
+                    float t = newValues.temperature;
+                    float h = newValues.humidity;
+                    json["temperature"] = t;
+                    json["humidity"] = h;
+                  }
+                }
+
+                char result[100];
+                serializeJson(json, result);
                 client.println(result);
 
                 client.println();
@@ -139,17 +174,18 @@ void setup()
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  // launch web server
+  // launch web server and temperature sensor
   server.begin();
+  Serial.println("Web server started");
+  dht.setup(GPIO_TEMP_SENSOR, DHTesp::DHT11);
+  Serial.println("DHT initiated\n");
 
   // task creation
-  xTaskCreate(vServerTask, "vServerTask", 10000, NULL, 1, NULL);
-  xTaskCreate(movementDetected, "movementDetected", 10000, NULL, 1, NULL);
+  xTaskCreatePinnedToCore(vServerTask, "vServerTask", 10000, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(movementDetected, "movementDetected", 10000, NULL, 1, NULL, 0);
 
   // all is ok
   controller.setAlarmDisable();
-
-  for(;;);
 }
 
 void loop() {}
