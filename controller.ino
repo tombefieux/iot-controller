@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include "DHTesp.h"
+#include <HTTPClient.h>
 
 #include "defines.h"
 #include "credentials.h"
@@ -37,10 +38,27 @@ void movementDetected(void *pvParameters)
     xSemaphoreTake(xBinarySemaphore, portMAX_DELAY);
 
     // if enable
-    if(controller.isAlarmEnable()) {
-      // todo: call API
+    if(controller.isAlarmEnable() && controller.getUsePresenceSensor()) {
+      
       controller.intrusionDetected();
-      Serial.println("INTRU OMG");
+
+      // call API
+      char url[100];
+      strcpy(url,"http://");
+      strcat(url,controller.getServerIP());
+      strcat(url,"/intrusion");
+      
+      HTTPClient http;
+      http.begin(url);
+      int responseCode = http.POST("");
+      http.end();
+
+      if(responseCode == 200) {
+        Serial.println("Intrusion successfully transmitted to the server");
+      }
+      else {
+        Serial.println("Failed to transmit the intrusion to the server :'(");
+      }
     }
   }
 }
@@ -66,6 +84,12 @@ void vServerTask( void *pvParameters )
           if (c == '\n') {
             // end of request so send response
             if (currentLine.length() == 0) {
+
+              // set the current client as server IP
+              char IP[] = "xxx.xxx.xxx.xxx";
+              IPAddress ip = client.remoteIP();
+              ip.toString().toCharArray(IP, 16);
+              controller.setServerIP(IP);
 
               // routing
               // controller
@@ -98,7 +122,6 @@ void vServerTask( void *pvParameters )
                 StaticJsonDocument<100> json;
                 
                 if(controller.getUseTemperatureSensor()) {
-                  
                   TempAndHumidity newValues = dht.getTempAndHumidity();
                   if (dht.getStatus() != 0) {
                     Serial.println("DHT11 error status: " + String(dht.getStatusString()));
