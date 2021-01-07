@@ -20,7 +20,7 @@ public:
     void getDescription(char*) const;
 
     // getters and setters
-    void setName(char[]);
+    void setName(const char[]);
     char* getName();
 
     void setServerIP(char[]);

@@ -6,12 +6,16 @@ Alarm::Alarm() {}
 void Alarm::startAlarm() {
   if(!alarmAlreadyLunched) {
       alarmAlreadyLunched = true;
-      xTaskCreatePinnedToCore(runAlarm, "runAlarm", 10000, NULL, 1, NULL, 0);
+      xTaskCreatePinnedToCore(runAlarm, "runAlarm", 10000, NULL, 1, &xTask2Handle, 0);
   }
 }
 
 void Alarm::stopAlarm() {
+  if(alarmAlreadyLunched) {
+    vTaskDelete(xTask2Handle);
+    ledcWrite(0, 0);
     alarmAlreadyLunched = false;
+  }
 }
 
 void Alarm::runAlarm(void *pvParameters) {

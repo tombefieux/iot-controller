@@ -92,7 +92,7 @@ void vServerTask( void *pvParameters )
               controller.setServerIP(IP);
 
               // routing
-              // controller
+              // GET controller
               if(header.indexOf("GET /controller") != -1) {
                 Serial.println("Responding to controller request");
                 
@@ -109,9 +109,9 @@ void vServerTask( void *pvParameters )
                 client.println();
               }
 
-              // sensors
+              // GET sensors
               else if(header.indexOf("GET /sensors") != -1) {
-                Serial.println("Responding to sensor request");
+                Serial.println("Responding to GET sensor request");
                 
                 // send header
                 client.println("HTTP/1.1 200 OK");
@@ -138,6 +138,83 @@ void vServerTask( void *pvParameters )
                 serializeJson(json, result);
                 client.println(result);
 
+                client.println();
+              }
+
+              // PUT controller
+              else if(header.indexOf("PUT /controller") != -1) {
+                Serial.println("Responding to PUT sensor request");
+
+                // get request body
+                String body = "";
+                int temp = 0;
+                while (temp != -1 && ((char) temp) != '}') {
+                  temp = client.read();
+                  body += (char) temp;
+                }
+                
+                DynamicJsonDocument doc(1024);
+                deserializeJson(doc, body);
+                JsonObject obj = doc.as<JsonObject>();
+
+                String nameA = obj["name"];
+                bool useTemperatureSensor = obj["useTemperatureSensor"];
+                bool usePresenceSensor = obj["usePresenceSensor"];
+                bool alarmIsEnable = obj["alarmIsEnable"];
+                int maxTemperature = obj["maxTemperature"];
+                int minTemperature = obj["minTemperature"];
+                int maxHumidity = obj["maxHumidity"];
+                int minHumidity = obj["minHumidity"];
+
+                // name
+                if(nameA != NULL) {
+                  controller.setName(nameA.c_str());
+                }
+
+                // useTemperatureSensor
+                if(useTemperatureSensor != NULL) {
+                  controller.setUseTemperatureSensor(useTemperatureSensor);
+                }
+
+                // usePresenceSensor
+                if(usePresenceSensor != NULL) {
+                  controller.setUsePresenceSensor(usePresenceSensor);
+                }
+
+                // maxTemperature
+                if(maxTemperature != NULL) {
+                  controller.setMaxTemperature((char) maxTemperature);
+                }
+
+                // minTemperature
+                if(minTemperature != NULL) {
+                  controller.setMinTemperature((char) minTemperature);
+                }
+
+                // maxHumidity
+                if(maxHumidity != NULL) {
+                  controller.setMaxHumidity((char) maxHumidity);
+                }
+
+                // minHumidity
+                if(minHumidity != NULL) {
+                  controller.setMinHumidity((char) minHumidity);
+                }
+
+                // alarmIsEnable
+                if(alarmIsEnable) {
+                  if(controller.getUsePresenceSensor() && !controller.isAlarmEnable()) {
+                    controller.setAlarmEnable();
+                  }
+                }
+                else {
+                  controller.setAlarmDisable();
+                }
+              
+                // send header
+                client.println("HTTP/1.1 200 OK");
+                client.println("Connection: close");
+                client.println();
                 client.println();
               }
 

@@ -48,7 +48,7 @@ void Controller::init() {
     }
 }
 
-void Controller::setName(char newName[]) {
+void Controller::setName(const char newName[]) {
     for (int i = 0; i < NAME_SIZE; i++) {
         controllerName[i] = newName[i];
     }
@@ -175,7 +175,7 @@ void Controller::getDescription(char* destination) const {
     
     json["name"] = controllerName;
     json["useTemperatureSensor"] = useTemperatureSensor;
-    json["usePresenceSensor"] = usePresenceSensor;
+    json["usetNamesePresenceSensor"] = usePresenceSensor;
     json["alarmIsEnable"] = alarmEnable;
     json["maxTemperature"] = (int) maxTemperature;
     json["minTemperature"] = (int) minTemperature;
