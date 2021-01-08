@@ -77,7 +77,7 @@ void Controller::setMinTemperature(char value) {
     save();
 }
 
-void Controller::setMaxHumidity(char value) {
+void Controller::setMaxHumidity(char value) {              
     maxHumidity = value;
     save();
 }
@@ -175,7 +175,7 @@ void Controller::getDescription(char* destination) const {
     
     json["name"] = controllerName;
     json["useTemperatureSensor"] = useTemperatureSensor;
-    json["usetNamesePresenceSensor"] = usePresenceSensor;
+    json["usePresenceSensor"] = usePresenceSensor;
     json["alarmIsEnable"] = alarmEnable;
     json["maxTemperature"] = (int) maxTemperature;
     json["minTemperature"] = (int) minTemperature;

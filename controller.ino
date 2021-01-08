@@ -53,7 +53,7 @@ void movementDetected(void *pvParameters)
       int responseCode = http.POST("");
       http.end();
 
-      if(responseCode == 200) {
+      if(responseCode == 200 || responseCode == 201) {
         Serial.println("Intrusion successfully transmitted to the server");
       }
       else {
@@ -63,7 +63,7 @@ void movementDetected(void *pvParameters)
   }
 }
 
-void vServerTask( void *pvParameters )
+void vServerTask(void *pvParameters)
 {
   unsigned long currentTime;
   unsigned long previousTime = 0; 
@@ -94,7 +94,7 @@ void vServerTask( void *pvParameters )
               // routing
               // GET controller
               if(header.indexOf("GET /controller") != -1) {
-                Serial.println("Responding to controller request");
+                Serial.println("Responding to GET controller request");
                 
                 // send header
                 client.println("HTTP/1.1 200 OK");
@@ -143,7 +143,7 @@ void vServerTask( void *pvParameters )
 
               // PUT controller
               else if(header.indexOf("PUT /controller") != -1) {
-                Serial.println("Responding to PUT sensor request");
+                Serial.println("Responding to PUT controller request");
 
                 // get request body
                 String body = "";
@@ -157,60 +157,61 @@ void vServerTask( void *pvParameters )
                 deserializeJson(doc, body);
                 JsonObject obj = doc.as<JsonObject>();
 
-                String nameA = obj["name"];
-                bool useTemperatureSensor = obj["useTemperatureSensor"];
-                bool usePresenceSensor = obj["usePresenceSensor"];
-                bool alarmIsEnable = obj["alarmIsEnable"];
-                int maxTemperature = obj["maxTemperature"];
-                int minTemperature = obj["minTemperature"];
-                int maxHumidity = obj["maxHumidity"];
-                int minHumidity = obj["minHumidity"];
-
                 // name
-                if(nameA != NULL) {
+                if(obj.containsKey("name")) {
+                  String nameA = obj["name"];
                   controller.setName(nameA.c_str());
                 }
 
                 // useTemperatureSensor
-                if(useTemperatureSensor != NULL) {
+                if(obj.containsKey("useTemperatureSensor")) {
+                  bool useTemperatureSensor = obj["useTemperatureSensor"];
                   controller.setUseTemperatureSensor(useTemperatureSensor);
                 }
 
                 // usePresenceSensor
-                if(usePresenceSensor != NULL) {
+                if(obj.containsKey("usePresenceSensor")) {
+                  bool usePresenceSensor = obj["usePresenceSensor"];
                   controller.setUsePresenceSensor(usePresenceSensor);
                 }
 
                 // maxTemperature
-                if(maxTemperature != NULL) {
+                if(obj.containsKey("maxTemperature")) {
+                  int maxTemperature = obj["maxTemperature"];
                   controller.setMaxTemperature((char) maxTemperature);
                 }
 
                 // minTemperature
-                if(minTemperature != NULL) {
+                if(obj.containsKey("minTemperature")) {
+                  int minTemperature = obj["minTemperature"];
                   controller.setMinTemperature((char) minTemperature);
                 }
 
                 // maxHumidity
-                if(maxHumidity != NULL) {
+                if(obj.containsKey("maxHumidity")) {
+                  int maxHumidity = obj["maxHumidity"];
                   controller.setMaxHumidity((char) maxHumidity);
                 }
 
                 // minHumidity
-                if(minHumidity != NULL) {
+                if(obj.containsKey("minHumidity")) {
+                  int minHumidity = obj["minHumidity"];
                   controller.setMinHumidity((char) minHumidity);
                 }
 
                 // alarmIsEnable
-                if(alarmIsEnable) {
-                  if(controller.getUsePresenceSensor() && !controller.isAlarmEnable()) {
+                if(obj.containsKey("alarmIsEnable")) {
+                  bool alarmIsEnable = obj["alarmIsEnable"];
+                  if(alarmIsEnable
+                      && controller.getUsePresenceSensor()
+                      && !controller.isAlarmEnable()) {
                     controller.setAlarmEnable();
                   }
+                  else {
+                    controller.setAlarmDisable();
+                  }
                 }
-                else {
-                  controller.setAlarmDisable();
-                }
-              
+                
                 // send header
                 client.println("HTTP/1.1 200 OK");
                 client.println("Connection: close");
@@ -237,6 +238,62 @@ void vServerTask( void *pvParameters )
       header = "";
       client.stop();
     }
+  }
+}
+
+void vTemperatureCheckTask(void *pvParameters)
+{
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount();
+  for( ;; )
+  {
+    if(controller.getUseTemperatureSensor()) {
+      TempAndHumidity newValues = dht.getTempAndHumidity();
+      if (dht.getStatus() != 0) {
+        Serial.println("DHT11 error status: " + String(dht.getStatusString()));
+      }
+      else {
+        float t = newValues.temperature;
+        float h = newValues.humidity;
+        
+        if(t > controller.getMaxTemperature() || t < controller.getMinTemperature()) {
+          // call API
+          char url[100];
+          strcpy(url,"http://");
+          strcat(url,controller.getServerIP());
+          strcat(url,"/alert");
+          
+          HTTPClient http;
+          http.begin(url);
+          http.addHeader("Content-Type", "application/json");
+          int responseCode = http.POST("{\"temperature\":" + String(t) + "}");
+          http.end();
+  
+          if(responseCode != 201 && responseCode != 200) {
+            Serial.println("Failed to alert the server that the temperature is not OK :'(");
+          }
+        }
+        
+        if(h > controller.getMaxHumidity() || h < controller.getMinHumidity()) {
+          // call API
+          char url[100];
+          strcpy(url,"http://");
+          strcat(url,controller.getServerIP());
+          strcat(url,"/alert");
+          
+          HTTPClient http;
+          http.begin(url);
+          http.addHeader("Content-Type", "application/json");
+          int responseCode = http.POST("{\"humidity\":" + String(h) + "}");
+          http.end();
+  
+          if(responseCode != 201 && responseCode != 200) {
+            Serial.println("Failed to alert the server that the humidity is not OK :'(");
+          }
+        }
+      }
+    }
+    vTaskDelayUntil( &xLastWakeTime, pdMS_TO_TICKS(5000));
   }
 }
 
@@ -280,9 +337,10 @@ void setup()
   dht.setup(GPIO_TEMP_SENSOR, DHTesp::DHT11);
   Serial.println("DHT initiated\n");
 
-  // task creation
+  // tasks creation
   xTaskCreatePinnedToCore(vServerTask, "vServerTask", 10000, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(movementDetected, "movementDetected", 10000, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(vTemperatureCheckTask, "vTemperatureCheckTask", 10000, NULL, 1, NULL, 0);
 
   // all is ok
   controller.setAlarmDisable();
