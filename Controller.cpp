@@ -176,7 +176,7 @@ void Controller::getDescription(char* destination) const {
     json["name"] = controllerName;
     json["useTemperatureSensor"] = useTemperatureSensor;
     json["usePresenceSensor"] = usePresenceSensor;
-    json["alarmIsEnable"] = alarmEnable;
+    json["alarmIsEnabled"] = alarmEnable;
     json["maxTemperature"] = (int) maxTemperature;
     json["minTemperature"] = (int) minTemperature;
     json["maxHumidity"] = (int) maxHumidity;

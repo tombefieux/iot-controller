@@ -200,8 +200,8 @@ void vServerTask(void *pvParameters)
                 }
 
                 // alarmIsEnable
-                if(obj.containsKey("alarmIsEnable")) {
-                  bool alarmIsEnable = obj["alarmIsEnable"];
+                if(obj.containsKey("alarmIsEnabled")) {
+                  bool alarmIsEnable = obj["alarmIsEnabled"];
                   if(alarmIsEnable) { 
                     if(controller.getUsePresenceSensor() && !controller.isAlarmEnable()) {
                       controller.setAlarmEnable();
